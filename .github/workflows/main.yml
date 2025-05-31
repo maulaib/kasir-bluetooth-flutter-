@@ -20,7 +20,8 @@ jobs:
 
       - name: Install Dependencies
         run: flutter pub get
-
+name: Enable Android SDK licenses
+run: yes | sdkmanager --licenses
       - name: Build APK
         run: flutter build apk --release
 
