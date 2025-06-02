@@ -1,123 +1,31 @@
-import 'package:flutter/material.dart';
+name: Build Flutter APK
 
-void main() {
-  runApp(ENotaApp());
-}
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
 
-class ENotaApp extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'E-Nota',
-      theme: ThemeData(primarySwatch: Colors.blue),
-      home: ENotaHomePage(),
-    );
-  }
-}
+jobs:
+  build:
+    runs-on: ubuntu-latest
 
-class ENotaHomePage extends StatefulWidget {
-  @override
-  _ENotaHomePageState createState() => _ENotaHomePageState();
-}
+    steps:
+      - uses: actions/checkout@v3
 
-class _ENotaHomePageState extends State<ENotaHomePage> {
-  final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _priceController = TextEditingController();
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.10.0'
 
-  List<Map<String, dynamic>> items = [];
+      - name: Install Dependencies
+        run: flutter pub get
 
-  void _addItem() {
-    if (_formKey.currentState!.validate()) {
-      final name = _nameController.text;
-      final price = double.parse(_priceController.text);
-      setState(() {
-        items.add({'name': name, 'price': price});
-        _nameController.clear();
-        _priceController.clear();
-      });
-    }
-  }
+      - name: Build APK
+        run: flutter build apk --release
 
-  double get total => items.fold(0.0, (sum, item) => sum + item['price']);
-
-  void _printNota() {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: Text("Cetak Nota"),
-        content: Text("Fitur cetak belum diimplementasikan.\nTotal: Rp ${total.toStringAsFixed(2)}"),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text("OK"))],
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('E-Nota')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Form(
-              key: _formKey,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _nameController,
-                      decoration: InputDecoration(labelText: 'Nama Barang'),
-                      validator: (value) => value!.isEmpty ? 'Wajib diisi' : null,
-                    ),
-                  ),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _priceController,
-                      keyboardType: TextInputType.number,
-                      decoration: InputDecoration(labelText: 'Harga'),
-                      validator: (value) => value!.isEmpty ? 'Wajib diisi' : null,
-                    ),
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.add),
-                    onPressed: _addItem,
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(height: 16),
-            Expanded(
-              child: ListView.separated(
-                itemCount: items.length,
-                separatorBuilder: (_, __) => Divider(),
-                itemBuilder: (context, index) {
-                  final item = items[index];
-                  return ListTile(
-                    title: Text(item['name']),
-                    trailing: Text('Rp ${item['price'].toStringAsFixed(2)}'),
-                  );
-                },
-              ),
-            ),
-            Divider(),
-            Align(
-              alignment: Alignment.centerRight,
-              child: Text(
-                'Total: Rp ${total.toStringAsFixed(2)}',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-            ),
-            SizedBox(height: 12),
-            ElevatedButton.icon(
-              icon: Icon(Icons.print),
-              label: Text('Cetak Nota'),
-              onPressed: _printNota,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
+      - name: Upload APK
+        uses: actions/upload-artifact@v3
+        with:
+          name: kasir-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
