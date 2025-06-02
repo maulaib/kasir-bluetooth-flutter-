@@ -2,3 +2,149 @@ dependencies:
   flutter:
     sdk: flutter
   blue_thermal_printer: ^1.1.5
+flutter pub get
+import 'package:flutter/material.dart';
+import 'package:blue_thermal_printer/blue_thermal_printer.dart';
+
+void main() {
+  runApp(KasirApp());
+}
+
+class KasirApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Aplikasi Kasir',
+      theme: ThemeData(primarySwatch: Colors.teal),
+      home: KasirHomePage(),
+    );
+  }
+}
+
+class Item {
+  final String nama;
+  final int harga;
+
+  Item({required this.nama, required this.harga});
+}
+
+class KasirHomePage extends StatefulWidget {
+  @override
+  _KasirHomePageState createState() => _KasirHomePageState();
+}
+
+class _KasirHomePageState extends State<KasirHomePage> {
+  final List<Item> menu = [
+    Item(nama: "Kopi", harga: 10000),
+    Item(nama: "Teh", harga: 8000),
+    Item(nama: "Roti", harga: 12000),
+  ];
+
+  final List<Item> keranjang = [];
+
+  BlueThermalPrinter printer = BlueThermalPrinter.instance;
+  List<BluetoothDevice> devices = [];
+  BluetoothDevice? selectedDevice;
+
+  @override
+  void initState() {
+    super.initState();
+    initPrinter();
+  }
+
+  void initPrinter() async {
+    devices = await printer.getBondedDevices();
+    setState(() {});
+  }
+
+  void tambahKeKeranjang(Item item) {
+    setState(() {
+      keranjang.add(item);
+    });
+  }
+
+  int getTotal() {
+    return keranjang.fold(0, (total, item) => total + item.harga);
+  }
+
+  void cetakStruk() async {
+    if (selectedDevice != null) {
+      await printer.connect(selectedDevice!);
+
+      printer.printNewLine();
+      printer.printCustom("NOTA PENJUALAN", 3, 1);
+      printer.printNewLine();
+      keranjang.forEach((item) {
+        printer.printCustom("${item.nama} - Rp${item.harga}", 1, 0);
+      });
+      printer.printNewLine();
+      printer.printCustom("TOTAL: Rp${getTotal()}", 2, 1);
+      printer.printNewLine();
+      printer.printCustom("Terima Kasih!", 1, 1);
+      printer.printNewLine();
+      printer.paperCut();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Aplikasi Kasir'),
+        actions: [
+          DropdownButton<BluetoothDevice>(
+            hint: Text("Pilih Printer", style: TextStyle(color: Colors.white)),
+            value: selectedDevice,
+            onChanged: (device) {
+              setState(() {
+                selectedDevice = device;
+              });
+            },
+            items: devices
+                .map((d) => DropdownMenuItem(
+                      child: Text(d.name ?? ""),
+                      value: d,
+                    ))
+                .toList(),
+          ),
+          IconButton(
+            icon: Icon(Icons.print),
+            onPressed: cetakStruk,
+          )
+        ],
+      ),
+      body: Column(
+        children: [
+          Text("Menu:", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          Expanded(
+            child: ListView.builder(
+              itemCount: menu.length,
+              itemBuilder: (context, index) {
+                final item = menu[index];
+                return ListTile(
+                  title: Text(item.nama),
+                  subtitle: Text("Rp${item.harga}"),
+                  trailing: ElevatedButton(
+                    child: Text("Tambah"),
+                    onPressed: () => tambahKeKeranjang(item),
+                  ),
+                );
+              },
+            ),
+          ),
+          Divider(),
+          Text("Keranjang:", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          ...keranjang.map((item) => ListTile(
+                title: Text(item.nama),
+                trailing: Text("Rp${item.harga}"),
+              )),
+          Divider(),
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Text("Total: Rp${getTotal()}", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          )
+        ],
+      ),
+    );
+  }
+}
